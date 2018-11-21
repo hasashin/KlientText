@@ -14,6 +14,15 @@ public class Client implements Runnable {
         try {
             System.out.println("Oczekiwanie na połączenie...");
             socket = new DatagramSocket(port,InetAddress.getByName(inet));
+            if(!socket.isConnected()){
+                System.out.println("Nie połączono z serwerem");
+                return;
+            }
+            else{
+                DatagramPacket pakiet = new DatagramPacket(new byte[256],256);
+                socket.setSoTimeout(10000);
+                socket.receive(pakiet);
+            }
             socket.setSoTimeout(100);
         } catch (IOException e) {
             System.err.println(e.getMessage());
