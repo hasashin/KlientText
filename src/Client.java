@@ -58,7 +58,7 @@ public class Client implements Runnable {
                 if (odpowiedz.equals("wygrana")) {
                     System.out.println("Wygrałeś!");
                 }
-                if (odpowiedz.equals("koniecCzas")) {
+                if (odpowiedz.equals("koniecCzasu")) {
                     System.out.println("Czas się skończył.");
                 }
                 send("end", "endConnection", idsesji, 0);
