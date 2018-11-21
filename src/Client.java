@@ -20,6 +20,7 @@ public class Client implements Runnable {
                 return;
             }
             else{
+                socket.send(generujPakiet("connect", "chce",0, 0));
                 DatagramPacket pakiet = new DatagramPacket(new byte[256],256);
                 socket.setSoTimeout(10000);
                 socket.receive(pakiet);
@@ -68,7 +69,7 @@ public class Client implements Runnable {
                 if (odpowiedz.equals("koniecCzasu")) {
                     System.out.println("Czas się skończył.");
                 }
-                send("end", "endConnection", idsesji, 0);
+                send("end", "zakonczPol", idsesji, 0);
                 ingame = cond = false;
                 break;
             case "answer":
