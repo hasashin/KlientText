@@ -54,7 +54,6 @@ public class Client implements Runnable {
             case "end":
                 if (odpowiedz.equals("przegrana")) {
                     System.out.println("Wygrał drugi gracz, poprawna liczba to: " + liczba);
-
                 }
                 if (odpowiedz.equals("wygrana")) {
                     System.out.println("Wygrałeś!");
