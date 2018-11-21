@@ -9,36 +9,30 @@ public class Client implements Runnable {
     private DatagramSocket socket;
     private static boolean cond = true;
     private boolean ingame = false;
+    private InetAddress ip;
+    private int port;
+    private boolean accepted = true;
 
     private Client(String inet, int port) {
         try {
+            this.port = port;
+            ip = InetAddress.getByName(inet);
             System.out.println("Oczekiwanie na połączenie...");
-            socket = new DatagramSocket(port,InetAddress.getByName(inet));
-            if(!socket.isConnected()){
-                System.out.println("Serwer niedostępny");
-                socket = null;
-                return;
-            }
-            else{
-                socket.send(generujPakiet("connect", "chce",0, 0));
-                DatagramPacket pakiet = new DatagramPacket(new byte[256],256);
-                socket.setSoTimeout(10000);
-                socket.receive(pakiet);
-                if(pakiet.getLength() == 0){
-                    socket = null;
-                    System.out.println("Osiągnięto limit czasu odpowiedzi");
-                    return;
-                }else
-                    decode(new String(pakiet.getData()));
-            }
+            socket = new DatagramSocket();
+            socket.send(generujPakiet("connect", "chce", 0, 0));
+            DatagramPacket pakiet = new DatagramPacket(new byte[256], 256);
+            socket.setSoTimeout(5000);
+            socket.receive(pakiet);
+            decode(new String(pakiet.getData()));
             socket.setSoTimeout(100);
         } catch (IOException e) {
             System.err.println(e.getMessage());
+            socket = null;
         }
 
     }
 
-    private void execute(String operacja, String odpowiedz, int liczba, int czas,int id) {
+    private void execute(String operacja, String odpowiedz, int liczba, int czas, int id) {
         switch (operacja) {
             case "start":
                 if (odpowiedz.equals("start")) {
@@ -54,7 +48,7 @@ public class Client implements Runnable {
                     if (odpowiedz.equals("czas")) {
                         System.out.println("Pozostało " + czas + " sekund");
                     }
-                    if (odpowiedz.equals("duza")){
+                    if (odpowiedz.equals("duza")) {
                         System.out.println("Liczba jest za duża");
                     }
                 }
@@ -73,34 +67,39 @@ public class Client implements Runnable {
                 ingame = cond = false;
                 break;
             case "answer":
-                if(odpowiedz.equals("accept")){
+                if (odpowiedz.equals("accept")) {
                     idsesji = id;
                 }
                 break;
+            case "response":
+                if(odpowiedz.equals("ACK")){
+                    accepted = true;
+                }
             default:
                 System.out.println("Otrzymano nieznany komunikat");
                 return;
         }
-        send("response","ACK",idsesji,0);
+        send("response", "ACK", idsesji, 0);
     }
 
     private void decode(String data) {
-        int liczba,czas,id;
+        int liczba, czas, id;
         String[] options = data.split("<<");
 
-        Hashtable<String,String> optionsSplit = new Hashtable<>();
+        Hashtable<String, String> optionsSplit = new Hashtable<>();
 
-        for(String elem : options){
+        for (String elem : options) {
             String[] temp = elem.split("[?]");
-            optionsSplit.put(temp[0],temp[1]);
+            if(temp.length == 2)
+                optionsSplit.put(temp[0], temp[1]);
         }
 
         liczba = Integer.parseInt(optionsSplit.get("LI"));
         czas = Integer.parseInt(optionsSplit.get("CZ"));
         id = Integer.parseInt(optionsSplit.get("ID"));
 
-        if (id == idsesji || idsesji==0) {
-            execute(optionsSplit.get("OP"), optionsSplit.get("OD"),liczba,czas,id);
+        if (id == idsesji || idsesji == 0) {
+            execute(optionsSplit.get("OP"), optionsSplit.get("OD"), liczba, czas, id);
         } else {
             System.out.println("Odebrano niepoprawny komunikat od serwera");
         }
@@ -108,20 +107,23 @@ public class Client implements Runnable {
     }
 
     private DatagramPacket generujPakiet(String operacja, String odpowiedz, int id, int liczba) {
-        
+
         byte[] buff = new byte[256];
 
-        DatagramPacket pakiet = new DatagramPacket(buff,256);
+        DatagramPacket pakiet = new DatagramPacket(buff, 256);
 
         String komunikat = "";
 
-        komunikat += "OP?"+operacja+"<<";
-        komunikat += "OD?"+odpowiedz+"<<";
-        komunikat += "ID?"+id+"<<";
-        komunikat += "LI?"+liczba+"<<";
-        komunikat += "CZ?"+0+"<<";
+        komunikat += "OP?" + operacja + "<<";
+        komunikat += "OD?" + odpowiedz + "<<";
+        komunikat += "ID?" + id + "<<";
+        komunikat += "LI?" + liczba + "<<";
+        komunikat += "CZ?" + 0 + "<<";
 
         pakiet.setData(komunikat.getBytes());
+
+        pakiet.setAddress(ip);
+        pakiet.setPort(port);
 
         return pakiet;
     }
@@ -129,6 +131,7 @@ public class Client implements Runnable {
     private void send(String operacja, String odpowiedz, int id, int liczba) {
         try {
             socket.send(generujPakiet(operacja, odpowiedz, id, liczba));
+            accepted = false;
         } catch (IOException r) {
             System.err.println(r.getMessage());
         }
@@ -150,7 +153,7 @@ public class Client implements Runnable {
         Scanner scanner = new Scanner(System.in);
         int liczba;
         byte[] data = new byte[256];
-        DatagramPacket packet = new DatagramPacket(data,256);
+        DatagramPacket packet = new DatagramPacket(data, 256);
         while (cond) {
             try {
                 if (System.in.available() > 0) {
@@ -164,6 +167,8 @@ public class Client implements Runnable {
                 socket.receive(packet);
                 decode(new String(packet.getData()));
             } catch (IOException e) {
+                if(e.getMessage().equals("Receive timed out"))
+                    continue;
                 System.err.println(e.getMessage());
             }
         }
