@@ -76,6 +76,7 @@ public class Client implements Runnable {
             case "response":
                 if(odpowiedz.equals("ACK")){
                     accepted = true;
+                    return;
                 }
                 return;
             default:
