@@ -33,7 +33,8 @@ public class Client implements Runnable {
     }
 
     private void execute(String operacja, String odpowiedz, int liczba, int czas, int id) {
-        send("response", "ACK", idsesji, 0);
+        if(!operacja.equals("response") && !odpowiedz.equals("ACK"))
+            send("response", "ACK", idsesji, 0);
         switch (operacja) {
             case "start":
                 if (odpowiedz.equals("start")) {
