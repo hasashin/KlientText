@@ -37,7 +37,7 @@ public class Client implements Runnable {
             send("response", "ACK", idsesji, 0);
         switch (operacja) {
             case "start":
-                if (odpowiedz.equals("start")) {
+                if (odpowiedz.equals("start") && !ingame) {
                     System.out.println("Start!");
                     ingame = true;
                 }
