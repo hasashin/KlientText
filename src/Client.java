@@ -1,5 +1,6 @@
 import java.net.*;
 import java.io.*;
+import java.sql.Timestamp;
 import java.util.Hashtable;
 import java.util.Scanner;
 
@@ -147,6 +148,8 @@ public class Client implements Runnable {
     }
 
     public static void main(String[] args) {
+        Timestamp ts = new Timestamp(System.currentTimeMillis());
+        System.out.println(ts.getTime());
         if (args.length == 2) {
             Client client = new Client(args[0], Integer.parseInt(args[1]));
             if (client.socket != null) {
