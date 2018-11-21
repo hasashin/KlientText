@@ -15,13 +15,20 @@ public class Client implements Runnable {
             System.out.println("Oczekiwanie na połączenie...");
             socket = new DatagramSocket(port,InetAddress.getByName(inet));
             if(!socket.isConnected()){
-                System.out.println("Nie połączono z serwerem");
+                System.out.println("Serwer niedostępny");
+                socket = null;
                 return;
             }
             else{
                 DatagramPacket pakiet = new DatagramPacket(new byte[256],256);
                 socket.setSoTimeout(10000);
                 socket.receive(pakiet);
+                if(pakiet.getLength() == 0){
+                    socket = null;
+                    System.out.println("Osiągnięto limit czasu odpowiedzi");
+                    return;
+                }else
+                    decode(new String(pakiet.getData()));
             }
             socket.setSoTimeout(100);
         } catch (IOException e) {
@@ -140,7 +147,7 @@ public class Client implements Runnable {
 
     public void run() {
         Scanner scanner = new Scanner(System.in);
-        int liczba, len;
+        int liczba;
         byte[] data = new byte[256];
         DatagramPacket packet = new DatagramPacket(data,256);
         while (cond) {
