@@ -33,6 +33,7 @@ public class Client implements Runnable {
     }
 
     private void execute(String operacja, String odpowiedz, int liczba, int czas, int id) {
+        send("response", "ACK", idsesji, 0);
         switch (operacja) {
             case "start":
                 if (odpowiedz.equals("start")) {
@@ -80,7 +81,6 @@ public class Client implements Runnable {
                 System.out.println("Otrzymano nieznany komunikat");
                 return;
         }
-        send("response", "ACK", idsesji, 0);
     }
 
     private void decode(String data) {
