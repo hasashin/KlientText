@@ -1,111 +1,118 @@
 import java.net.*;
 import java.io.*;
+import java.util.Hashtable;
 import java.util.Scanner;
 
 public class Client implements Runnable {
 
     private int idsesji;
-    private Socket socket;
-    private DataInputStream sin;
-    private DataOutputStream sout;
+    private DatagramSocket socket;
     private static boolean cond = true;
     private boolean ingame = false;
 
     private Client(String inet, int port) {
         try {
             System.out.println("Oczekiwanie na połączenie...");
-            socket = new Socket(inet, port);
-            sin = new DataInputStream(socket.getInputStream());
-            sout = new DataOutputStream(socket.getOutputStream());
+            socket = new DatagramSocket(port,InetAddress.getByName(inet));
+            socket.setSoTimeout(100);
         } catch (IOException e) {
             System.err.println(e.getMessage());
         }
 
     }
 
-    private void execute(int operacja, int odpowiedz, int liczba, int czas, int sesja) {
+    private void execute(String operacja, String odpowiedz, int liczba, int czas,int id) {
         switch (operacja) {
-            case 2:
-                if (odpowiedz == 0) {
+            case "start":
+                if (odpowiedz.equals("start")) {
                     System.out.println("Start!");
                     ingame = true;
                 }
                 break;
-            case 3:
+            case "notify":
                 if (ingame) {
-                    if (odpowiedz == 1) {
+                    if (odpowiedz.equals("mala")) {
                         System.out.println("Liczba jest za mała");
                     }
-                    if (odpowiedz == 2) {
+                    if (odpowiedz.equals("czas")) {
                         System.out.println("Pozostało " + czas + " sekund");
                     }
-                    if (odpowiedz == 4){
+                    if (odpowiedz.equals("duza")){
                         System.out.println("Liczba jest za duża");
                     }
                 }
                 break;
-            case 7:
-                if (odpowiedz == 0) {
+            case "end":
+                if (odpowiedz.equals("przegrana")) {
                     System.out.println("Wygrał drugi gracz, poprawna liczba to: " + liczba);
 
                 }
-                if (odpowiedz == 1) {
+                if (odpowiedz.equals("wygrana")) {
                     System.out.println("Wygrałeś!");
                 }
-                if (odpowiedz == 2) {
+                if (odpowiedz.equals("koniecCzas")) {
                     System.out.println("Czas się skończył.");
                 }
-                send(0, 7, 7, idsesji);
-                try {
-                    socket.close();
-                } catch (IOException e) {
-                    System.err.println(e.getMessage());
-                }
+                send("end", "endConnection", idsesji, 0);
                 ingame = cond = false;
                 break;
-            default:
+            case "answer":
+                if(odpowiedz.equals("accept")){
+                    idsesji = id;
+                }
                 break;
+            default:
+                System.out.println("Otrzymano nieznany komunikat");
+                return;
         }
+        send("response","ACK",idsesji,0);
     }
 
-    private void decode(byte[] data) {
+    private void decode(String data) {
+        int liczba,czas,id;
+        String[] options = data.split("<<");
 
-        int odpowiedz, sesja, operacja, liczba, czas;
+        Hashtable<String,String> optionsSplit = new Hashtable<>();
 
-        operacja = (data[0] & 0b11100000) >> 5;
-        odpowiedz = (data[0] & 0b00011100) >> 2;
-        sesja = ((data[0] & 0b00000011) << 3) | ((data[1] & 0b11100000) >> 5);
-        liczba = ((data[1] & 0b00011111) << 3) | ((data[2] & 0b11100000) >> 5);
-        czas = ((data[2] & 0b00011111) << 3) | ((data[3] & 0b11100000) >> 5);
+        for(String elem : options){
+            String[] temp = elem.split("[?]");
+            optionsSplit.put(temp[0],temp[1]);
+        }
 
-        if (sesja == idsesji) {
-            execute(operacja, odpowiedz, liczba, czas, sesja);
+        liczba = Integer.parseInt(optionsSplit.get("LI"));
+        czas = Integer.parseInt(optionsSplit.get("CZ"));
+        id = Integer.parseInt(optionsSplit.get("ID"));
+
+        if (id == idsesji || idsesji==0) {
+            execute(optionsSplit.get("OP"), optionsSplit.get("OD"),liczba,czas,id);
         } else {
-            if (operacja == 0 && odpowiedz == 0) {
-                this.idsesji = sesja;
-            } else
-                System.out.println("Odebrano niepoprawny komunikat od serwera");
+            System.out.println("Odebrano niepoprawny komunikat od serwera");
         }
 
     }
 
-    private byte[] generujPakiet(int operacja, int odpowiedz, int id, int liczba) {
-        byte[] packet = new byte[4];
+    private DatagramPacket generujPakiet(String operacja, String odpowiedz, int id, int liczba) {
+        
+        byte[] buff = new byte[256];
 
-        packet[0] = (byte) ((operacja & 0b00000111) << 5);
-        packet[0] = (byte) (packet[0] | (byte) ((odpowiedz & 0b00000111) << 2));
-        packet[0] = (byte) (packet[0] | (byte) ((id & 0b00011000) >> 3));
+        DatagramPacket pakiet = new DatagramPacket(buff,256);
 
-        packet[1] = (byte) ((id & 0b00000111) << 5);
-        packet[1] = (byte) (packet[1] | (byte) ((liczba & 0b11111000) >> 3));
+        String komunikat = "";
 
-        packet[2] = (byte) ((liczba & 0b00000111) << 5);
-        return packet;
+        komunikat += "OP?"+operacja+"<<";
+        komunikat += "OD?"+odpowiedz+"<<";
+        komunikat += "ID?"+id+"<<";
+        komunikat += "LI?"+liczba+"<<";
+        komunikat += "CZ?"+0+"<<";
+
+        pakiet.setData(komunikat.getBytes());
+
+        return pakiet;
     }
 
-    private void send(int liczba, int operacja, int odpowiedz, int id) {
+    private void send(String operacja, String odpowiedz, int id, int liczba) {
         try {
-            sout.write(generujPakiet(operacja, odpowiedz, id, liczba), 0, 4);
+            socket.send(generujPakiet(operacja, odpowiedz, id, liczba));
         } catch (IOException r) {
             System.err.println(r.getMessage());
         }
@@ -115,7 +122,6 @@ public class Client implements Runnable {
         if (args.length == 2) {
             Client client = new Client(args[0], Integer.parseInt(args[1]));
             if (client.socket != null) {
-                System.out.println("Połączono z serwerem " + args[0] + ":" + args[1]);
                 new Thread(client).start();
             } else {
                 System.out.println("Nie można było połączyć z serwerem");
@@ -127,36 +133,23 @@ public class Client implements Runnable {
     public void run() {
         Scanner scanner = new Scanner(System.in);
         int liczba, len;
-        byte[] data = new byte[4];
+        byte[] data = new byte[256];
+        DatagramPacket packet = new DatagramPacket(data,256);
         while (cond) {
             try {
                 if (System.in.available() > 0) {
                     liczba = scanner.nextInt();
-                    send(liczba, 3, 0, idsesji);
+                    send("notify", "liczba", idsesji, liczba);
                 }
             } catch (Throwable e) {
                 scanner.next();
             }
             try {
-                if (sin.available() > 0) {
-                    len = sin.read(data);
-                    if (len == -1) {
-                        cond = false;
-                    } else {
-                        decode(data);
-                    }
-                }
+                socket.receive(packet);
+                decode(new String(packet.getData()));
             } catch (IOException e) {
                 System.err.println(e.getMessage());
             }
         }
-        try {
-            socket.close();
-        } catch (IOException e) {
-            System.err.println(e.getMessage());
-        }
-
-
     }
-
 }
