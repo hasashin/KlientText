@@ -75,7 +75,7 @@ public class Client implements Runnable {
                 if(odpowiedz.equals("ACK")){
                     accepted = true;
                 }
-                break;
+                return;
             default:
                 System.out.println("Otrzymano nieznany komunikat");
                 return;
