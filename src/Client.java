@@ -57,13 +57,19 @@ public class Client implements Runnable {
                 break;
             case "end":
                 if (odpowiedz.equals("przegrana")) {
-                    System.out.println("Wygrał drugi gracz, poprawna liczba to: " + liczba);
+                    System.out.println("Wygrał inny gracz, poprawna liczba to: " + liczba);
                 }
                 if (odpowiedz.equals("wygrana")) {
                     System.out.println("Wygrałeś!");
                 }
                 if (odpowiedz.equals("koniecCzasu")) {
                     System.out.println("Czas się skończył.");
+                }
+                try {
+                    Thread.sleep(100);
+                }
+                catch(InterruptedException e){
+                    System.err.println(e.getMessage());
                 }
                 send("end", "zakonczPol", idsesji, 0);
                 ingame = cond = false;
