@@ -12,7 +12,8 @@ public class Client implements Runnable {
     private boolean ingame = false;
     private InetAddress ip;
     private int port;
-    private boolean accepted = true;
+    private Listener listener;
+    private Timestamp timestamp = new Timestamp(System.currentTimeMillis());
 
     private Client(String inet, int port) {
         try {
@@ -26,6 +27,7 @@ public class Client implements Runnable {
             socket.receive(pakiet);
             decode(new String(pakiet.getData()));
             socket.setSoTimeout(100);
+            listener = new Listener(this,socket);
         } catch (IOException e) {
             System.err.println(e.getMessage());
             socket = null;
@@ -34,8 +36,14 @@ public class Client implements Runnable {
     }
 
     private void execute(String operacja, String odpowiedz, int liczba, int czas, int id) {
-        if(!operacja.equals("response") && !odpowiedz.equals("ACK"))
+        if(!operacja.equals("response") && !odpowiedz.equals("ACK")) {
             send("response", "ACK", idsesji, 0);
+            try{
+                Thread.sleep(100);
+            }catch (InterruptedException e){
+                System.out.println(e.getMessage());
+            }
+        }
         switch (operacja) {
             case "start":
                 if (odpowiedz.equals("start") && !ingame) {
@@ -67,32 +75,29 @@ public class Client implements Runnable {
                     System.out.println("Czas się skończył.");
                 }
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(idsesji);
                 }
                 catch(InterruptedException e){
                     System.err.println(e.getMessage());
                 }
                 send("end", "zakonczPol", idsesji, 0);
+                listener.warunek = false;
                 ingame = cond = false;
                 break;
             case "answer":
                 if (odpowiedz.equals("accept")) {
                     idsesji = id;
+                    System.out.println("Połączono z serwerem. Otrzymano ID: "+id);
                 }
                 break;
             case "response":
-                if(odpowiedz.equals("ACK")){
-                    accepted = true;
-                    return;
-                }
                 return;
             default:
                 System.out.println("Otrzymano nieznany komunikat");
-                return;
         }
     }
 
-    private void decode(String data) {
+    void decode(String data) {
         int liczba, czas, id;
         String[] options = data.split("<<");
 
@@ -129,6 +134,8 @@ public class Client implements Runnable {
         komunikat += "ID?" + id + "<<";
         komunikat += "LI?" + liczba + "<<";
         komunikat += "CZ?" + 0 + "<<";
+        komunikat += "TS?" + timestamp.getTime()+"<<";
+        komunikat += "\0";
 
         pakiet.setData(komunikat.getBytes());
 
@@ -140,16 +147,21 @@ public class Client implements Runnable {
 
     private void send(String operacja, String odpowiedz, int id, int liczba) {
         try {
-            socket.send(generujPakiet(operacja, odpowiedz, id, liczba));
-            accepted = false;
+            DatagramPacket pakiet = generujPakiet(operacja,odpowiedz,id,liczba);
+            socket.send(pakiet);
+            if(!(operacja.equals("response") && odpowiedz.equals("ACK"))){
+                listener.accepted = false;
+            }
         } catch (IOException r) {
             System.err.println(r.getMessage());
         }
     }
 
+    void setCondition(){
+        cond = false;
+    }
+
     public static void main(String[] args) {
-        Timestamp ts = new Timestamp(System.currentTimeMillis());
-        System.out.println(ts.getTime());
         if (args.length == 2) {
             Client client = new Client(args[0], Integer.parseInt(args[1]));
             if (client.socket != null) {
@@ -164,8 +176,8 @@ public class Client implements Runnable {
     public void run() {
         Scanner scanner = new Scanner(System.in);
         int liczba;
-        byte[] data = new byte[256];
-        DatagramPacket packet = new DatagramPacket(data, 256);
+        Thread listen = new Thread(listener);
+        listen.start();
         while (cond) {
             try {
                 if (System.in.available() > 0) {
@@ -175,14 +187,7 @@ public class Client implements Runnable {
             } catch (Throwable e) {
                 scanner.next();
             }
-            try {
-                socket.receive(packet);
-                decode(new String(packet.getData()));
-            } catch (IOException e) {
-                if(e.getMessage().equals("Receive timed out"))
-                    continue;
-                System.err.println(e.getMessage());
-            }
         }
+        socket.close();
     }
 }
