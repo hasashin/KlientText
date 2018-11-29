@@ -135,7 +135,7 @@ public class Client implements Runnable {
         komunikat += "LI?" + liczba + "<<";
         komunikat += "CZ?" + 0 + "<<";
         komunikat += "TS?" + timestamp.getTime()+"<<";
-        komunikat += "\0";
+        //komunikat += "\0";
 
         pakiet.setData(komunikat.getBytes());
 
